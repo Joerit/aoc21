@@ -10,23 +10,30 @@ from rawinput;
 drop table spawnings;
 create table spawnings (
     day int primary key,
-    spawners int
+    s0 int,
+    s1 int,
+    s2 int,
+    s3 int,
+    s4 int,
+    s5 int,
+    s6 int,
+    s7 int,
+    s8 int
 );
 
--- they count 0 as an extra day because they suck lmao ayyy so we have to +1
-insert into spawnings(day, spawners)
-select timer+1, count(timer)
-from initfish
-group by timer;
-
--- insert some '0's to simplify further handling
-insert into spawnings(day, spawners)
-values 
-	(1, 0),
-	(0, 0),
-	(-1, 0),
-	(-2, 0),
-	(-3, 0);
+insert into spawnings
+select 
+	0 as day,
+	sum(case when timer = 0 then 1 else 0 end) as s0,
+	sum(case when timer = 1 then 1 else 0 end) as s1,
+	sum(case when timer = 2 then 1 else 0 end) as s2,
+	sum(case when timer = 3 then 1 else 0 end) as s3,
+	sum(case when timer = 4 then 1 else 0 end) as s4,
+	sum(case when timer = 5 then 1 else 0 end) as s5,
+	sum(case when timer = 6 then 1 else 0 end) as s6,
+	sum(case when timer = 7 then 1 else 0 end) as s7,
+	sum(case when timer = 8 then 1 else 0 end) as s8
+from initfish;
 
 -- iterate over days
 create or replace function buildspawnings(start int, iters int) returns void
@@ -36,20 +43,29 @@ begin
     for i in start..iters loop
 		raise notice 'i: %', i;
 		insert into spawnings
-		select i as day, (s1.spawners + s2.spawners) as spawners
+		select 
+			i as day,
+			prev.s1 as s0,
+			prev.s2 as s1,
+			prev.s3 as s2,
+			prev.s4 as s3,
+			prev.s5 as s4,
+			prev.s6 as s5,
+			prev.s7 + prev.s0 as s6,
+			prev.s8 as s7,
+			prev.s0 as s8
 		from 
-			(select spawners from spawnings where day = i - 7) as s1,
-			(select spawners from spawnings where day = i - 9) as s2
+			(select * from spawnings where day = i - 1) as prev
 		;
     end loop;
     return ;
 end; $$
 language plpgsql;
 
-select buildspawnings(6, 80);
+select buildspawnings(1, 80);
 
-select sum(spawners)
+select s0+s1+s2+s3+s4+s5+s6+s7+s8
 from spawnings 
 where
-	day > 80 - 10  -- cycles are 9 long
+	day = 80  -- cycles are 9 long
 ;
